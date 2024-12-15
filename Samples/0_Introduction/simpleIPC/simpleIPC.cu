@@ -29,6 +29,7 @@
  * This sample demonstrates Inter Process Communication
  * using one process per GPU for computation.
  */
+#include "cuda_runtime_api.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <vector>
@@ -49,6 +50,9 @@ static const char shmName[] = "simpleIPCshm";
 #error Unsupported system
 #endif
 
+// todo: 每个进程之间共享区域(其实可以理解为share memory, 每个进程都可以访问).
+//  1. memHandle, eventHandle对应共享信息, 都可以访问.
+//  2. barrier用来控制同步, 类似于__syncthreads, 确保子进程到达同步点.
 typedef struct shmStruct_st {
   size_t nprocesses;
   int barrier;
@@ -185,6 +189,10 @@ static void childProcess(int id) {
   printf("Process %d complete!\n", id);
 }
 
+// todo:
+//  1. 从主进程进来.
+//  2. 主进程会遍历可用的device, 可用的device启动对应个数的子进程.
+//  3. 每个子进程完成ipc test.
 static void parentProcess(char *app) {
   sharedMemoryInfo info;
   int devCount, i;
@@ -202,6 +210,7 @@ static void parentProcess(char *app) {
   shm = (volatile shmStruct *)info.addr;
   memset((void *)shm, 0, sizeof(*shm));
 
+	// todo: 完成卡的遍历, 确认卡和卡之间: 1. 支持unified address, 2. 非独占, 因为子进程会相互访问对应卡.
   // Pick all the devices that can access each other's memory for this test
   // Keep in mind that CUDA has minimal support for fork() without a
   // corresponding exec() in the child process, but in this case our
@@ -260,6 +269,7 @@ static void parentProcess(char *app) {
     exit(EXIT_WAIVED);
   }
 
+	// todo: 在主进程上建立每张卡的资源, 对应每个子进程.
   // Now allocate memory and an event for each process and fill the shared
   // memory buffer with the IPC handles to communicate
   for (i = 0; i < shm->nprocesses; i++) {
@@ -279,6 +289,7 @@ static void parentProcess(char *app) {
     events.push_back(event);
   }
 
+	// todo: 启动子进程完成ipc test.
   // Launch the child processes!
   for (i = 0; i < shm->nprocesses; i++) {
     char devIdx[10];
